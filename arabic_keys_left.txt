@@ -1,0 +1,31 @@
+oneUppercaseLetter: One uppercase letter
+oneNumber: One number
+welcomeToPdos: Welcome to PDOS
+ok: OK
+orders: Orders
+lbl_11: Team Overview
+openInGoogleMaps: Open in Google Maps
+coverageOverview: Coverage Overview
+lbl_21: Notes (Optional)
+lbl_22: Description (Optional)
+lbl_23: Location (Optional)
+overviewOfYourSpending: Overview of your spending
+photoAttachmentOptional: Photo Attachment (Optional)
+doctorVisit: DOCTOR VISIT
+doctor: DOCTOR
+observedQuantityOnShelf: Observed Quantity on Shelf
+or: OR
+openBatchCamera: Open batch camera
+other: Other
+descriptionOptional: Description (Optional)
+salesOrder: Sales Order
+salesOrders: Sales Orders
+pdos: PDOS
+pharmaceuticalDistributionNoperationsSystem: Pharmaceutical Distribution\nOperations System
+lbl_2025PdosAllRights_46: © 2025 PDOS. All rights reserved.
+pharmaceuticalDistributionOperatingSystem: Pharmaceutical Distribution Operating System
+u00a92026PdosAll: \u00a9 2026 PDOS. All rights reserved.
+aboutPdos: About PDOS
+signOut: Sign Out
+styleApptextstylesLabellgCopywith: , style: AppTextStyles.labelLg.copyWith(color: AppColors.onSurfaceVariant)),\n          Expanded(child: Text(value, style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w600, color: AppColors.onSurface))),\n        ]),\n      ),\n    );\n  }\n}\n\n// ── Supervisor name lookup ──\n\nclass _SupervisorNameLabel extends ConsumerWidget {\n  final String supervisorId;\n  const _SupervisorNameLabel(this.supervisorId);\n  @override\n  Widget build(BuildContext context, WidgetRef ref) {\n    final usersAsync = ref.watch(usersListProvider);\n    return usersAsync.when(\n      data: (users) {\n        final sup = users.where((u) => u.id == supervisorId).firstOrNull;\n        return _InfoRow(Icons.person_rounded, 
+lbl_64: Operation successful

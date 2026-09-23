@@ -1,0 +1,2 @@
+- [x] Fix missing required parameters in `visitDetailProvider` in `visit_detail_screen.dart`
+- [x] Verify compilation of `visit_detail_screen.dart`

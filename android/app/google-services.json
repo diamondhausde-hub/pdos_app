@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "617860143409",
+    "project_id": "pdos-2a11e",
+    "storage_bucket": "pdos-2a11e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:617860143409:android:27f93fd8cb7f226d357810",
+        "android_client_info": {
+          "package_name": "com.pdos.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB7ARTa2VuqZn4N5s03sCrjHPCOIWhUH2E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,10 @@
+﻿import sys
+
+file_path = r'C:\Users\prot\Documents\PDOS\pdos_app\lib\core\providers\data_providers.dart'
+with open(file_path, 'r', encoding='utf-8') as f:
+    content = f.read()
+
+content = "import '../models/brand_activity_log_model.dart';\n" + content
+
+with open(file_path, 'w', encoding='utf-8') as f:
+    f.write(content)
