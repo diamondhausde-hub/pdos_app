@@ -14,7 +14,6 @@ import '../../../core/widgets/glass_card.dart';
 import '../../../shared/widgets/shimmer_loading.dart';
 import '../widgets/task_card_widget.dart';
 
-
 final _distance = const Distance();
 
 class MyDayTab extends ConsumerStatefulWidget {
@@ -39,8 +38,6 @@ class _MyDayTabState extends ConsumerState<MyDayTab>
       vsync: this,
       duration: const Duration(milliseconds: 400),
     )..forward();
-
-
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(syncOrchestratorProvider).syncAllInOrder();
@@ -206,7 +203,7 @@ class _MyDayTabState extends ConsumerState<MyDayTab>
                       appointments: sortedAppointments,
                       onTap: (appt) {
                         if (appt.status == AppointmentStatus.done) {
-                          context.push('/rep/visit/${appt.id}');
+                          context.push('/rep/visit/${appt.visitId ?? appt.id}');
                         } else {
                           context.push(
                             '/rep/active_visit/${appt.id}?centerId=${appt.centerId ?? ""}&clientId=${appt.clientId ?? ""}',
@@ -230,7 +227,6 @@ class _MyDayTabState extends ConsumerState<MyDayTab>
   }
 }
 
-
 class _TargetsOverviewSection extends ConsumerWidget {
   final VoidCallback? onViewMore;
 
@@ -239,7 +235,7 @@ class _TargetsOverviewSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final targetsAsync = ref.watch(targetsProvider);
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -277,14 +273,10 @@ class _TargetsOverviewSection extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    Expanded(
-                      child: _TargetSquare(target: displayTargets[0]),
-                    ),
+                    Expanded(child: _TargetSquare(target: displayTargets[0])),
                     if (displayTargets.length > 1) ...[
                       const SizedBox(width: 12),
-                      Expanded(
-                        child: _TargetSquare(target: displayTargets[1]),
-                      ),
+                      Expanded(child: _TargetSquare(target: displayTargets[1])),
                     ] else ...[
                       const SizedBox(width: 12),
                       const Spacer(),
@@ -297,8 +289,13 @@ class _TargetsOverviewSection extends ConsumerWidget {
                     child: TextButton(
                       onPressed: onViewMore,
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        backgroundColor: AppColors.primary.withValues(
+                          alpha: 0.1,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -343,7 +340,11 @@ class _TargetSquare extends StatelessWidget {
               color: AppColors.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.track_changes_rounded, color: AppColors.primary, size: 24),
+            child: const Icon(
+              Icons.track_changes_rounded,
+              color: AppColors.primary,
+              size: 24,
+            ),
           ),
           const SizedBox(height: 12),
           Text(
@@ -753,17 +754,23 @@ class _AppointmentRow extends StatelessWidget {
                           color: AppColors.onSurfaceVariant,
                         ),
                       ),
-                      if (appointment.suggestedProductName != null && appointment.suggestedProductName!.isNotEmpty) ...[
+                      if (appointment.suggestedProductName != null &&
+                          appointment.suggestedProductName!.isNotEmpty) ...[
                         const SizedBox(height: 4),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.tertiary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             '📌 ركّز على: ${appointment.suggestedProductName}',
-                            style: AppTextStyles.labelSm.copyWith(color: AppColors.tertiary),
+                            style: AppTextStyles.labelSm.copyWith(
+                              color: AppColors.tertiary,
+                            ),
                           ),
                         ),
                       ],
@@ -807,12 +814,12 @@ class _ProTipCard extends StatelessWidget {
     final tipText = clientName != null
         ? 'Head to $clientName for your next visit'
         : center != null
-            ? 'Head to ${center.name} for your next visit'
-            : nextAppt?.suggestedProductName != null
-                ? 'Recommend ${nextAppt!.suggestedProductName} during your next visit'
-                : nextAppt != null
-                ? 'Your next visit is at ${nextAppt!.apptTime}'
-                : 'No visits scheduled today — use this time to follow up on pending leads';
+        ? 'Head to ${center.name} for your next visit'
+        : nextAppt?.suggestedProductName != null
+        ? 'Recommend ${nextAppt!.suggestedProductName} during your next visit'
+        : nextAppt != null
+        ? 'Your next visit is at ${nextAppt!.apptTime}'
+        : 'No visits scheduled today — use this time to follow up on pending leads';
 
     return GlassCard(
       padding: const EdgeInsets.all(16),
@@ -849,8 +856,6 @@ class _ProTipCard extends StatelessWidget {
   }
 }
 
-
-
 class _NewTasksSection extends ConsumerWidget {
   const _NewTasksSection();
 
@@ -878,7 +883,10 @@ class _NewTasksSection extends ConsumerWidget {
                 TextButton(
                   onPressed: () => context.push('/rep/tasks'),
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 0,
+                    ),
                     minimumSize: const Size(0, 32),
                   ),
                   child: const Text('عرض الكل'),
@@ -892,7 +900,9 @@ class _NewTasksSection extends ConsumerWidget {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, s) => Text('خطأ: $e'),
           data: (tasks) {
-            final pendingTasks = tasks.where((t) => t.status == 'pending').toList();
+            final pendingTasks = tasks
+                .where((t) => t.status == 'pending')
+                .toList();
             if (pendingTasks.isEmpty) {
               return Container(
                 width: double.infinity,

@@ -14,11 +14,18 @@ class AppointmentRepository {
   /// Watch appointments for UI
   Stream<List<AppointmentModel>> watchAppointments({String? repId}) {
     var query = _localDb.select(_localDb.localAppointments)
-      ..orderBy([(t) => drift.OrderingTerm(expression: t.apptDate, mode: drift.OrderingMode.asc)]);
+      ..orderBy([
+        (t) => drift.OrderingTerm(
+          expression: t.apptDate,
+          mode: drift.OrderingMode.asc,
+        ),
+      ]);
     if (repId != null) {
       query = query..where((t) => t.repId.equals(repId));
     }
-    return query.watch().map((rows) => rows.map((r) => AppointmentModel.fromLocal(r)).toList());
+    return query.watch().map(
+      (rows) => rows.map((r) => AppointmentModel.fromLocal(r)).toList(),
+    );
   }
 
   Future<void> createAppointmentForRep({
@@ -35,7 +42,8 @@ class AppointmentRepository {
       clientId: clientId,
       centerId: centerId,
       apptDate: DateTime(dateTime.year, dateTime.month, dateTime.day),
-      apptTime: '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}',
+      apptTime:
+          '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}',
       notes: notes,
       suggestedProductId: suggestedProductId,
       createdAt: DateTime.now(),
@@ -46,11 +54,13 @@ class AppointmentRepository {
 
   /// Create appointment locally (offline-first)
   Future<void> createAppointment(AppointmentModel appt) async {
-    await _localDb.into(_localDb.localAppointments).insert(
+    await _localDb
+        .into(_localDb.localAppointments)
+        .insert(
           appt.copyWith(synced: false).toLocalCompanion(),
           mode: drift.InsertMode.insertOrReplace,
         );
-        
+
     // Schedule local notification
     await notificationService.scheduleAppointmentReminder(appt);
   }
@@ -60,20 +70,25 @@ class AppointmentRepository {
     final all = await _localDb.select(_localDb.localAppointments).get();
     for (final local in all) {
       if (local.status == 'pending') {
-        await notificationService.scheduleAppointmentReminder(AppointmentModel.fromLocal(local));
+        await notificationService.scheduleAppointmentReminder(
+          AppointmentModel.fromLocal(local),
+        );
       }
     }
   }
 
   /// Update appointment status locally
   Future<void> updateStatus(String id, AppointmentStatus status) async {
-    await (_localDb.update(_localDb.localAppointments)..where((t) => t.id.equals(id)))
-        .write(LocalAppointmentsCompanion(
-      status: drift.Value(status.name),
-      synced: const drift.Value(false),
-      updatedAt: drift.Value(DateTime.now()),
-    ));
-    
+    await (_localDb.update(
+      _localDb.localAppointments,
+    )..where((t) => t.id.equals(id))).write(
+      LocalAppointmentsCompanion(
+        status: drift.Value(status.name),
+        synced: const drift.Value(false),
+        updatedAt: drift.Value(DateTime.now()),
+      ),
+    );
+
     // If not pending, cancel any scheduled reminders for this appointment
     if (status != AppointmentStatus.pending) {
       await notificationService.cancelAppointmentReminder(id);
@@ -87,7 +102,9 @@ class AppointmentRepository {
       // ignore: avoid_print
       print('Failed to delete online: $e');
     }
-    await (_localDb.delete(_localDb.localAppointments)..where((t) => t.id.equals(id))).go();
+    await (_localDb.delete(
+      _localDb.localAppointments,
+    )..where((t) => t.id.equals(id))).go();
     await notificationService.cancelAppointmentReminder(id);
   }
 
@@ -96,6 +113,7 @@ class AppointmentRepository {
     if (isSynced) {
       try {
         final payload = {
+          'visit_id': appt.visitId,
           'rep_id': appt.repId,
           'client_id': appt.clientId,
           'center_id': appt.centerId,
@@ -111,14 +129,16 @@ class AppointmentRepository {
         isSynced = false;
       }
     }
-    
+
     final finalAppt = appt.copyWith(synced: isSynced);
-    
-    await _localDb.into(_localDb.localAppointments).insert(
+
+    await _localDb
+        .into(_localDb.localAppointments)
+        .insert(
           finalAppt.toLocalCompanion(),
           mode: drift.InsertMode.insertOrReplace,
         );
-        
+
     await notificationService.cancelAppointmentReminder(appt.id);
     if (appt.status == AppointmentStatus.pending) {
       await notificationService.scheduleAppointmentReminder(appt);
