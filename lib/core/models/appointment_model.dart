@@ -7,6 +7,7 @@ enum AppointmentStatus { pending, done, missed }
 @immutable
 class AppointmentModel {
   final String id;
+  final String? visitId;
   final String? referenceCode;
   final String repId;
   final String? clientId;
@@ -27,6 +28,7 @@ class AppointmentModel {
 
   const AppointmentModel({
     required this.id,
+    this.visitId,
     this.referenceCode,
     required this.repId,
     this.clientId,
@@ -49,12 +51,14 @@ class AppointmentModel {
   factory AppointmentModel.fromJson(Map<String, dynamic> json) {
     return AppointmentModel(
       id: json['id'] as String,
+      visitId: json['visit_id'] as String?,
       referenceCode: json['reference_code'] as String?,
       repId: json['rep_id'] as String,
       clientId: json['client_id'] as String?,
       clientName: json['client_name'] as String?,
       centerId: json['center_id'] as String?,
-      centerName: json['center_name'] as String? ?? json['client_name'] as String?,
+      centerName:
+          json['center_name'] as String? ?? json['client_name'] as String?,
       apptDate: DateTime.parse(json['appt_date'] as String),
       apptTime: json['appt_time'] as String,
       reminderMinutesBefore: json['reminder_minutes_before'] as int? ?? 30,
@@ -75,6 +79,7 @@ class AppointmentModel {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'visit_id': visitId,
       'reference_code': referenceCode,
       'rep_id': repId,
       'client_id': clientId,
@@ -91,6 +96,7 @@ class AppointmentModel {
 
   AppointmentModel copyWith({
     String? id,
+    String? visitId,
     String? referenceCode,
     String? repId,
     String? clientId,
@@ -111,6 +117,7 @@ class AppointmentModel {
   }) {
     return AppointmentModel(
       id: id ?? this.id,
+      visitId: visitId ?? this.visitId,
       referenceCode: referenceCode ?? this.referenceCode,
       repId: repId ?? this.repId,
       clientId: clientId ?? this.clientId,
@@ -119,7 +126,8 @@ class AppointmentModel {
       centerName: centerName ?? this.centerName,
       apptDate: apptDate ?? this.apptDate,
       apptTime: apptTime ?? this.apptTime,
-      reminderMinutesBefore: reminderMinutesBefore ?? this.reminderMinutesBefore,
+      reminderMinutesBefore:
+          reminderMinutesBefore ?? this.reminderMinutesBefore,
       notes: notes ?? this.notes,
       supervisorNote: supervisorNote ?? this.supervisorNote,
       suggestedProductId: suggestedProductId ?? this.suggestedProductId,
@@ -134,6 +142,7 @@ class AppointmentModel {
   factory AppointmentModel.fromLocal(LocalAppointment local) {
     return AppointmentModel(
       id: local.id,
+      visitId: local.visitId,
       referenceCode: local.referenceCode,
       repId: local.repId,
       clientId: local.clientId,
@@ -159,6 +168,7 @@ class AppointmentModel {
   LocalAppointmentsCompanion toLocalCompanion() {
     return LocalAppointmentsCompanion.insert(
       id: id,
+      visitId: drift.Value(visitId),
       referenceCode: drift.Value(referenceCode),
       repId: repId,
       clientId: drift.Value(clientId),

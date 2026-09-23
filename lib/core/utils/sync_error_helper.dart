@@ -1,14 +1,14 @@
 import 'package:dio/dio.dart';
 
 String getSyncErrorMessage(DioException e) {
-  if (e.response?.statusCode == 401) return 'Session expired, please sign in again';
+  if (e.response?.statusCode == 401) return 'انتهت صلاحية الجلسة، سجّل دخول من جديد';
   if (e.type == DioExceptionType.connectionTimeout ||
       e.type == DioExceptionType.receiveTimeout ||
       e.type == DioExceptionType.sendTimeout) {
-    return 'No internet connection';
+    return 'لا يوجد اتصال بالإنترنت';
   }
-  if (e.type == DioExceptionType.connectionError) return 'No internet connection';
-  return 'Unexpected error, please try again later';
+  if (e.type == DioExceptionType.connectionError) return 'لا يوجد اتصال بالإنترنت';
+  return 'خطأ غير متوقع، حاول لاحقاً';
 }
 
 bool isSessionExpired(DioException e) => e.response?.statusCode == 401;

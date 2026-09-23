@@ -3766,6 +3766,17 @@ class $LocalAppointmentsTable extends LocalAppointments
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _visitIdMeta = const VerificationMeta(
+    'visitId',
+  );
+  @override
+  late final GeneratedColumn<String> visitId = GeneratedColumn<String>(
+    'visit_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _referenceCodeMeta = const VerificationMeta(
     'referenceCode',
   );
@@ -3979,6 +3990,7 @@ class $LocalAppointmentsTable extends LocalAppointments
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    visitId,
     referenceCode,
     repId,
     brandId,
@@ -4015,6 +4027,12 @@ class $LocalAppointmentsTable extends LocalAppointments
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     } else if (isInserting) {
       context.missing(_idMeta);
+    }
+    if (data.containsKey('visit_id')) {
+      context.handle(
+        _visitIdMeta,
+        visitId.isAcceptableOrUnknown(data['visit_id']!, _visitIdMeta),
+      );
     }
     if (data.containsKey('reference_code')) {
       context.handle(
@@ -4171,6 +4189,10 @@ class $LocalAppointmentsTable extends LocalAppointments
         DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
+      visitId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}visit_id'],
+      ),
       referenceCode: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}reference_code'],
@@ -4259,6 +4281,7 @@ class $LocalAppointmentsTable extends LocalAppointments
 class LocalAppointment extends DataClass
     implements Insertable<LocalAppointment> {
   final String id;
+  final String? visitId;
   final String? referenceCode;
   final String repId;
   final String? brandId;
@@ -4280,6 +4303,7 @@ class LocalAppointment extends DataClass
   final bool isAbandoned;
   const LocalAppointment({
     required this.id,
+    this.visitId,
     this.referenceCode,
     required this.repId,
     this.brandId,
@@ -4304,6 +4328,9 @@ class LocalAppointment extends DataClass
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
+    if (!nullToAbsent || visitId != null) {
+      map['visit_id'] = Variable<String>(visitId);
+    }
     if (!nullToAbsent || referenceCode != null) {
       map['reference_code'] = Variable<String>(referenceCode);
     }
@@ -4349,6 +4376,9 @@ class LocalAppointment extends DataClass
   LocalAppointmentsCompanion toCompanion(bool nullToAbsent) {
     return LocalAppointmentsCompanion(
       id: Value(id),
+      visitId: visitId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(visitId),
       referenceCode: referenceCode == null && nullToAbsent
           ? const Value.absent()
           : Value(referenceCode),
@@ -4398,6 +4428,7 @@ class LocalAppointment extends DataClass
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return LocalAppointment(
       id: serializer.fromJson<String>(json['id']),
+      visitId: serializer.fromJson<String?>(json['visitId']),
       referenceCode: serializer.fromJson<String?>(json['referenceCode']),
       repId: serializer.fromJson<String>(json['repId']),
       brandId: serializer.fromJson<String?>(json['brandId']),
@@ -4430,6 +4461,7 @@ class LocalAppointment extends DataClass
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
+      'visitId': serializer.toJson<String?>(visitId),
       'referenceCode': serializer.toJson<String?>(referenceCode),
       'repId': serializer.toJson<String>(repId),
       'brandId': serializer.toJson<String?>(brandId),
@@ -4454,6 +4486,7 @@ class LocalAppointment extends DataClass
 
   LocalAppointment copyWith({
     String? id,
+    Value<String?> visitId = const Value.absent(),
     Value<String?> referenceCode = const Value.absent(),
     String? repId,
     Value<String?> brandId = const Value.absent(),
@@ -4475,6 +4508,7 @@ class LocalAppointment extends DataClass
     bool? isAbandoned,
   }) => LocalAppointment(
     id: id ?? this.id,
+    visitId: visitId.present ? visitId.value : this.visitId,
     referenceCode: referenceCode.present
         ? referenceCode.value
         : this.referenceCode,
@@ -4506,6 +4540,7 @@ class LocalAppointment extends DataClass
   LocalAppointment copyWithCompanion(LocalAppointmentsCompanion data) {
     return LocalAppointment(
       id: data.id.present ? data.id.value : this.id,
+      visitId: data.visitId.present ? data.visitId.value : this.visitId,
       referenceCode: data.referenceCode.present
           ? data.referenceCode.value
           : this.referenceCode,
@@ -4546,6 +4581,7 @@ class LocalAppointment extends DataClass
   String toString() {
     return (StringBuffer('LocalAppointment(')
           ..write('id: $id, ')
+          ..write('visitId: $visitId, ')
           ..write('referenceCode: $referenceCode, ')
           ..write('repId: $repId, ')
           ..write('brandId: $brandId, ')
@@ -4570,8 +4606,9 @@ class LocalAppointment extends DataClass
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
+    visitId,
     referenceCode,
     repId,
     brandId,
@@ -4591,12 +4628,13 @@ class LocalAppointment extends DataClass
     updatedAt,
     syncError,
     isAbandoned,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is LocalAppointment &&
           other.id == this.id &&
+          other.visitId == this.visitId &&
           other.referenceCode == this.referenceCode &&
           other.repId == this.repId &&
           other.brandId == this.brandId &&
@@ -4620,6 +4658,7 @@ class LocalAppointment extends DataClass
 
 class LocalAppointmentsCompanion extends UpdateCompanion<LocalAppointment> {
   final Value<String> id;
+  final Value<String?> visitId;
   final Value<String?> referenceCode;
   final Value<String> repId;
   final Value<String?> brandId;
@@ -4642,6 +4681,7 @@ class LocalAppointmentsCompanion extends UpdateCompanion<LocalAppointment> {
   final Value<int> rowid;
   const LocalAppointmentsCompanion({
     this.id = const Value.absent(),
+    this.visitId = const Value.absent(),
     this.referenceCode = const Value.absent(),
     this.repId = const Value.absent(),
     this.brandId = const Value.absent(),
@@ -4665,6 +4705,7 @@ class LocalAppointmentsCompanion extends UpdateCompanion<LocalAppointment> {
   });
   LocalAppointmentsCompanion.insert({
     required String id,
+    this.visitId = const Value.absent(),
     this.referenceCode = const Value.absent(),
     required String repId,
     this.brandId = const Value.absent(),
@@ -4693,6 +4734,7 @@ class LocalAppointmentsCompanion extends UpdateCompanion<LocalAppointment> {
        updatedAt = Value(updatedAt);
   static Insertable<LocalAppointment> custom({
     Expression<String>? id,
+    Expression<String>? visitId,
     Expression<String>? referenceCode,
     Expression<String>? repId,
     Expression<String>? brandId,
@@ -4716,6 +4758,7 @@ class LocalAppointmentsCompanion extends UpdateCompanion<LocalAppointment> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (visitId != null) 'visit_id': visitId,
       if (referenceCode != null) 'reference_code': referenceCode,
       if (repId != null) 'rep_id': repId,
       if (brandId != null) 'brand_id': brandId,
@@ -4744,6 +4787,7 @@ class LocalAppointmentsCompanion extends UpdateCompanion<LocalAppointment> {
 
   LocalAppointmentsCompanion copyWith({
     Value<String>? id,
+    Value<String?>? visitId,
     Value<String?>? referenceCode,
     Value<String>? repId,
     Value<String?>? brandId,
@@ -4767,6 +4811,7 @@ class LocalAppointmentsCompanion extends UpdateCompanion<LocalAppointment> {
   }) {
     return LocalAppointmentsCompanion(
       id: id ?? this.id,
+      visitId: visitId ?? this.visitId,
       referenceCode: referenceCode ?? this.referenceCode,
       repId: repId ?? this.repId,
       brandId: brandId ?? this.brandId,
@@ -4796,6 +4841,9 @@ class LocalAppointmentsCompanion extends UpdateCompanion<LocalAppointment> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<String>(id.value);
+    }
+    if (visitId.present) {
+      map['visit_id'] = Variable<String>(visitId.value);
     }
     if (referenceCode.present) {
       map['reference_code'] = Variable<String>(referenceCode.value);
@@ -4868,6 +4916,7 @@ class LocalAppointmentsCompanion extends UpdateCompanion<LocalAppointment> {
   String toString() {
     return (StringBuffer('LocalAppointmentsCompanion(')
           ..write('id: $id, ')
+          ..write('visitId: $visitId, ')
           ..write('referenceCode: $referenceCode, ')
           ..write('repId: $repId, ')
           ..write('brandId: $brandId, ')
@@ -13118,6 +13167,7 @@ typedef $$LocalCentersTableProcessedTableManager =
 typedef $$LocalAppointmentsTableCreateCompanionBuilder =
     LocalAppointmentsCompanion Function({
       required String id,
+      Value<String?> visitId,
       Value<String?> referenceCode,
       required String repId,
       Value<String?> brandId,
@@ -13142,6 +13192,7 @@ typedef $$LocalAppointmentsTableCreateCompanionBuilder =
 typedef $$LocalAppointmentsTableUpdateCompanionBuilder =
     LocalAppointmentsCompanion Function({
       Value<String> id,
+      Value<String?> visitId,
       Value<String?> referenceCode,
       Value<String> repId,
       Value<String?> brandId,
@@ -13175,6 +13226,11 @@ class $$LocalAppointmentsTableFilterComposer
   });
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get visitId => $composableBuilder(
+    column: $table.visitId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13288,6 +13344,11 @@ class $$LocalAppointmentsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get visitId => $composableBuilder(
+    column: $table.visitId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get referenceCode => $composableBuilder(
     column: $table.referenceCode,
     builder: (column) => ColumnOrderings(column),
@@ -13395,6 +13456,9 @@ class $$LocalAppointmentsTableAnnotationComposer
   });
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get visitId =>
+      $composableBuilder(column: $table.visitId, builder: (column) => column);
 
   GeneratedColumn<String> get referenceCode => $composableBuilder(
     column: $table.referenceCode,
@@ -13509,6 +13573,7 @@ class $$LocalAppointmentsTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> id = const Value.absent(),
+                Value<String?> visitId = const Value.absent(),
                 Value<String?> referenceCode = const Value.absent(),
                 Value<String> repId = const Value.absent(),
                 Value<String?> brandId = const Value.absent(),
@@ -13531,6 +13596,7 @@ class $$LocalAppointmentsTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => LocalAppointmentsCompanion(
                 id: id,
+                visitId: visitId,
                 referenceCode: referenceCode,
                 repId: repId,
                 brandId: brandId,
@@ -13555,6 +13621,7 @@ class $$LocalAppointmentsTableTableManager
           createCompanionCallback:
               ({
                 required String id,
+                Value<String?> visitId = const Value.absent(),
                 Value<String?> referenceCode = const Value.absent(),
                 required String repId,
                 Value<String?> brandId = const Value.absent(),
@@ -13577,6 +13644,7 @@ class $$LocalAppointmentsTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => LocalAppointmentsCompanion.insert(
                 id: id,
+                visitId: visitId,
                 referenceCode: referenceCode,
                 repId: repId,
                 brandId: brandId,

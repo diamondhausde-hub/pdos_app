@@ -15,41 +15,44 @@ class VisitRepository {
 
   VisitRepository(this._localDb, this._syncOrchestrator);
 
-  Future<List<VisitModel>> getVisitsByStatus(String status, {String? brandId}) async {
-    try {
-      final queryParams = <String, dynamic>{'status': status};
-      if (brandId != null) queryParams['brand_id'] = brandId;
-      final response = await _api.dio.get('/visits', queryParameters: queryParams);
-      final data = response.data as List;
-      return data.map((e) => VisitModel.fromJson(e)).toList();
-    } catch (e) {
-      return [];
-    }
+  Future<List<VisitModel>> getVisitsByStatus(
+    String status, {
+    String? brandId,
+  }) async {
+    final queryParams = <String, dynamic>{'status': status};
+    if (brandId != null) queryParams['brand_id'] = brandId;
+    final response = await _api.dio.get(
+      '/visits',
+      queryParameters: queryParams,
+    );
+    final data = response.data as List;
+    return data.map((e) => VisitModel.fromJson(e)).toList();
   }
 
   Future<List<VisitModel>> getAllVisits({String? status}) async {
-    try {
-      final queryParams = <String, dynamic>{};
-      if (status != null) queryParams['status'] = status;
-      final response = await _api.dio.get('/visits', queryParameters: queryParams.isNotEmpty ? queryParams : null);
-      final data = response.data as List;
-      return data.map((e) => VisitModel.fromJson(e)).toList();
-    } catch (e) {
-      return [];
-    }
+    final queryParams = <String, dynamic>{};
+    if (status != null) queryParams['status'] = status;
+    final response = await _api.dio.get(
+      '/visits',
+      queryParameters: queryParams.isNotEmpty ? queryParams : null,
+    );
+    final data = response.data as List;
+    return data.map((e) => VisitModel.fromJson(e)).toList();
   }
 
-  Future<void> reviewVisit(String visitId, String status, {String? note}) async {
-    await _api.dio.put('/visits/$visitId/review', data: {
-      'status': status,
-      'note': note,
-    });
+  Future<void> reviewVisit(
+    String visitId,
+    String status, {
+    String? note,
+  }) async {
+    await _api.dio.put(
+      '/visits/$visitId/review',
+      data: {'status': status, 'note': note},
+    );
   }
 
   Future<void> addVisitNote(String visitId, String note) async {
-    await _api.dio.put('/visits/$visitId/note', data: {
-      'review_note': note,
-    });
+    await _api.dio.put('/visits/$visitId/note', data: {'review_note': note});
   }
 
   Future<void> createVisit(VisitModel visit) async {
@@ -102,12 +105,9 @@ class VisitRepository {
       };
       await _api.dio.post('/visits/check-in', data: payload);
     } catch (e) {
-      if (e is DioException && e.response?.statusCode == 422) {
-        // Server rejected check-in due to distance
-        throw Exception(e.response?.data['detail'] ?? 'Check-in rejected by server.');
+      if (e is! DioException || !_isNetworkError(e)) {
+        rethrow;
       }
-      // If it's a network error, we proceed provisionally (offline mode).
-      // The visit is optimistically considered 'in_progress' locally.
       print('Offline check-in fallback: $e');
     }
 
@@ -120,7 +120,8 @@ class VisitRepository {
       taskId: taskId,
       visitDate: DateTime.now(),
       arrivalTime: DateTime.now(),
-      status: 'in_progress', // ALWAYS start in_progress locally; server may flag it later.
+      status:
+          'in_progress', // ALWAYS start in_progress locally; server may flag it later.
       synced: false,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
@@ -131,7 +132,7 @@ class VisitRepository {
       visitType: clientId != null ? 'doctor' : 'center',
     );
     await _localDb.into(_localDb.localVisits).insert(newVisit);
-    
+
     return visitId;
   }
 
@@ -151,46 +152,61 @@ class VisitRepository {
         updatedAt: drift.Value(DateTime.now()),
         signaturePath: drift.Value(signaturePath),
       );
-      
-      await (_localDb.update(_localDb.localVisits)..where((t) => t.id.equals(visitId))).write(companion);
-      
+
+      await (_localDb.update(
+        _localDb.localVisits,
+      )..where((t) => t.id.equals(visitId))).write(companion);
+
       for (final item in salesItems) {
-        await _localDb.into(_localDb.localVisitItems).insert(
-          LocalVisitItem(
-            id: _uuid.v4(),
-            visitId: visitId,
-            productId: item['productId'] as String,
-            qtySold: item['qtySold'] as int,
-            qtyFree: item['qtyFree'] as int,
-            priceAtSale: item['priceAtSale'] as double?,
-            synced: false,
-            createdAt: DateTime.now(),
-            isAbandoned: false,
-          )
-        );
+        await _localDb
+            .into(_localDb.localVisitItems)
+            .insert(
+              LocalVisitItem(
+                id: _uuid.v4(),
+                visitId: visitId,
+                productId: item['productId'] as String,
+                qtySold: item['qtySold'] as int,
+                qtyFree: item['qtyFree'] as int,
+                priceAtSale: item['priceAtSale'] as double?,
+                synced: false,
+                createdAt: DateTime.now(),
+                isAbandoned: false,
+              ),
+            );
       }
 
       for (final check in stockChecks) {
-        await _localDb.into(_localDb.localPharmacyStockChecks).insert(
-          LocalPharmacyStockCheck(
-            id: _uuid.v4(),
-            visitId: visitId,
-            productId: check['productId'] as String,
-            observedQty: check['observedQty'] as int,
-            synced: false,
-            createdAt: DateTime.now(),
-            isAbandoned: false,
-          )
-        );
+        await _localDb
+            .into(_localDb.localPharmacyStockChecks)
+            .insert(
+              LocalPharmacyStockCheck(
+                id: _uuid.v4(),
+                visitId: visitId,
+                productId: check['productId'] as String,
+                observedQty: check['observedQty'] as int,
+                synced: false,
+                createdAt: DateTime.now(),
+                isAbandoned: false,
+              ),
+            );
       }
     });
 
-    // Fire and forget sync
-    _syncOrchestrator.syncAllInOrder().catchError((e) => print('Background sync failed: $e'));
+    await _syncOrchestrator.syncAllInOrder();
+  }
+
+  bool _isNetworkError(DioException error) {
+    return error.response == null &&
+        (error.type == DioExceptionType.connectionError ||
+            error.type == DioExceptionType.connectionTimeout ||
+            error.type == DioExceptionType.sendTimeout ||
+            error.type == DioExceptionType.receiveTimeout);
   }
 
   Future<void> cancelVisit(String visitId) async {
-    await (_localDb.delete(_localDb.localVisits)..where((t) => t.id.equals(visitId))).go();
+    await (_localDb.delete(
+      _localDb.localVisits,
+    )..where((t) => t.id.equals(visitId))).go();
   }
 
   Stream<LocalVisit?> watchActiveVisit(String repId) {
