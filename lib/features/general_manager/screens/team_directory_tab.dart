@@ -172,30 +172,80 @@ class _TeamDirectoryTabState extends ConsumerState<TeamDirectoryTab> {
   }
 
   Widget _buildTeamList(AsyncValue<List<TeamDirectoryNode>> teamAsync) {
-    return RefreshIndicator(
-      onRefresh: () async => ref.invalidate(teamDirectoryProvider),
-      child: teamAsync.when(
-        loading: () => Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (team) {
-          if (team.isEmpty) {
-            return const Center(child: Text('No team members for this brand'));
-          }
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: TextField(
+            controller: _searchCtrl,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              hintText: 'بحث عن مشرف أو مندوب...',
+              prefixIcon: const Icon(Icons.search_rounded, size: 20),
+              suffixIcon: _searchCtrl.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear_rounded, size: 18),
+                      onPressed: () {
+                        _searchCtrl.clear();
+                        setState(() {});
+                      },
+                    )
+                  : null,
+              filled: true,
+              fillColor: Theme.of(context).brightness == Brightness.dark
+                  ? AppColors.darkCard
+                  : AppColors.surfaceContainer,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () async => ref.invalidate(teamDirectoryProvider),
+            child: teamAsync.when(
+              loading: () => Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
+              data: (team) {
+                if (team.isEmpty) {
+                  return const Center(child: Text('No team members for this brand'));
+                }
 
-          final filtered = team.map((node) {
-            final matchingReps = _searchQuery.isEmpty
-                ? node.reps
-                : node.reps.where((r) =>
-                    r.fullName.toLowerCase().contains(_searchQuery) ||
-                    r.email.toLowerCase().contains(_searchQuery)).toList();
-            final supMatches = _searchQuery.isEmpty ||
-                node.supervisor.fullName.toLowerCase().contains(_searchQuery) ||
-                node.supervisor.email.toLowerCase().contains(_searchQuery);
-            return MapEntry(node, supMatches ? node.reps : matchingReps);
-          }).where((e) => _searchQuery.isEmpty || e.key.reps.isNotEmpty).toList();
+                final filtered = team.map((node) {
+                  final supMatches = _searchQuery.isEmpty ||
+                      node.supervisor.fullName.toLowerCase().contains(_searchQuery) ||
+                      node.supervisor.email.toLowerCase().contains(_searchQuery) ||
+                      (node.supervisor.phone?.toLowerCase().contains(_searchQuery) ?? false);
+                  final matchingReps = _searchQuery.isEmpty
+                      ? node.reps
+                      : node.reps.where((r) =>
+                          r.fullName.toLowerCase().contains(_searchQuery) ||
+                          r.email.toLowerCase().contains(_searchQuery) ||
+                          (r.phone?.toLowerCase().contains(_searchQuery) ?? false) ||
+                          (r.region?.toLowerCase().contains(_searchQuery) ?? false)).toList();
+                  return MapEntry(node, supMatches ? node.reps : matchingReps);
+                }).where((e) {
+                  if (_searchQuery.isEmpty) return true;
+                  final supMatches = e.key.supervisor.fullName.toLowerCase().contains(_searchQuery) ||
+                      e.key.supervisor.email.toLowerCase().contains(_searchQuery) ||
+                      (e.key.supervisor.phone?.toLowerCase().contains(_searchQuery) ?? false);
+                  return supMatches || e.value.isNotEmpty;
+                }).toList();
 
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+                if (filtered.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'لا توجد نتائج تطابق "$_searchQuery"',
+                      style: TextStyle(color: AppColors.onSurfaceVariant),
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: filtered.length,
             itemBuilder: (context, index) {
               final entry = filtered[index];
@@ -208,6 +258,8 @@ class _TeamDirectoryTabState extends ConsumerState<TeamDirectoryTab> {
                 child: GlassCard(
                   padding: const EdgeInsets.all(4),
                   child: ExpansionTile(
+                    key: PageStorageKey('sup_${sup.id}_${_searchQuery.isNotEmpty}'),
+                    initiallyExpanded: _searchQuery.isNotEmpty,
                     tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -260,8 +312,11 @@ class _TeamDirectoryTabState extends ConsumerState<TeamDirectoryTab> {
           );
         },
       ),
-    );
-  }
+    ),
+  ),
+],
+);
+}
 
   Widget _buildProductsGrid(AsyncValue<List<ProductModel>> productsAsync, bool isDark) {
     return productsAsync.when(
@@ -455,8 +510,11 @@ class _TeamDirectoryTabState extends ConsumerState<TeamDirectoryTab> {
                 child: ElevatedButton.icon(
                   onPressed: () => _requestDeactivation(context, user.id),
                   icon: Icon(Icons.block),
-                  label: Text('Request Deactivation'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade100, foregroundColor: Colors.red.shade900),
+                  label: const Text('طلب تعطيل الحساب'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.errorContainer,
+                    foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
+                  ),
                 ),
               ),
             ],

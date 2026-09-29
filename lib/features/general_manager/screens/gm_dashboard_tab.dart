@@ -191,8 +191,8 @@ class GmDashboardTab extends ConsumerWidget {
                                 if (data == null)
                                   const Text('خطأ في التحميل', style: TextStyle(color: Colors.red))
                                 else ...[
-                                  _InfoRow('الrevenue:', _formatRevenue(data.totalRevenue)),
-                                  _InfoRow('الvisits:', '${data.visitsCompleted}'),
+                                  _InfoRow('الإيرادات:', _formatRevenue(data.totalRevenue)),
+                                  _InfoRow('الزيارات:', '${data.visitsCompleted}'),
                                   _InfoRow('الهدف:', '${data.targetCompletionPercent.toStringAsFixed(0)}%'),
                                 ]
                               ],
@@ -230,7 +230,7 @@ class GmDashboardTab extends ConsumerWidget {
                         const SizedBox(width: 12),
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Text(rep.repName, style: AppTextStyles.labelLarge),
-                          Text('${rep.totalVisits} visits', style: AppTextStyles.bodySmall.copyWith(color: AppColors.onSurfaceVariant)),
+                          Text('${rep.totalVisits} زيارة', style: AppTextStyles.bodySmall.copyWith(color: AppColors.onSurfaceVariant)),
                         ])),
                         Text(_formatRevenue(rep.totalRevenue), style: AppTextStyles.labelLarge.copyWith(color: AppColors.success)),
                       ],
@@ -268,7 +268,7 @@ class GmDashboardTab extends ConsumerWidget {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(4),
                           child: LinearProgressIndicator(
-                            value: r.coveragePercent / 100.0,
+                            value: ((r.coveragePercent.isNaN ? 0.0 : r.coveragePercent) / 100.0).clamp(0.0, 1.0),
                             minHeight: 8,
                             backgroundColor: AppColors.outlineVariant.withValues(alpha: 0.3),
                             valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
@@ -276,7 +276,7 @@ class GmDashboardTab extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${r.visitsCompleted} visits / ${r.totalCenters} مركز',
+                          '${r.visitsCompleted} زيارة / ${r.totalCenters} مركز',
                           style: AppTextStyles.caption.copyWith(color: AppColors.onSurfaceVariant),
                         ),
                       ],

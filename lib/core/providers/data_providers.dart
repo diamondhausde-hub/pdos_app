@@ -435,7 +435,8 @@ final monthlyRevenueProvider = FutureProvider<List<MonthlyRevenueModel>>((ref) {
 });
 
 final systemOverviewProvider = StreamProvider<SystemOverviewModel>((ref) {
-  if (ref.watch(currentUserProvider) == null) return const Stream.empty();
+  final user = ref.watch(currentUserProvider);
+  if (user == null || user.role == UserRole.rep) return const Stream.empty();
   final repo = ref.read(analyticsRepositoryProvider);
   final brandId = ref.watch(selectedBrandIdProvider);
   return _pollWithLifecycle(ref, () => repo.getSystemOverview(brandId: brandId));

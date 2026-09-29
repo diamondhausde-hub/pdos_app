@@ -54,6 +54,97 @@ class _AllExpensesTabState extends ConsumerState<AllExpensesTab> {
     }
   }
 
+  final Set<String> _processingExpenseIds = {};
+
+  bool _canReview(ExpenseModel expense) {
+    if (expense.status == 'approved' || expense.status == 'rejected') {
+      return false;
+    }
+    return expense.status == 'pending' ||
+        expense.status == 'escalated' ||
+        expense.requiresGmApproval;
+  }
+
+  Future<void> _updateExpenseStatus(String expenseId, String status,
+      {String? reason}) async {
+    if (_processingExpenseIds.contains(expenseId)) return;
+    setState(() => _processingExpenseIds.add(expenseId));
+    try {
+      final api = ApiService.instance;
+      await api.dio.patch('/expenses/$expenseId/status', data: {
+        'status': status,
+        if (reason != null && reason.isNotEmpty) 'rejection_reason': reason,
+      });
+      if (mounted) {
+        final selectedBrandId = ref.read(selectedBrandIdProvider);
+        ref.invalidate(allExpensesProvider(selectedBrandId));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                status == 'approved' ? 'تم قبول المصروف بنجاح' : 'تم رفض المصروف'),
+            backgroundColor:
+                status == 'approved' ? AppColors.success : AppColors.error,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('فشل في تحديث حالة المصروف: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _processingExpenseIds.remove(expenseId));
+      }
+    }
+  }
+
+  void _showRejectDialog(ExpenseModel expense) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('رفض المصروف'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+                'هل أنت متأكد من رفض مصروف ${expense.repName ?? 'المندوب'} بقيمة \$${expense.amount.toStringAsFixed(2)}؟'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'سبب الرفض (اختياري)',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _updateExpenseStatus(expense.id, 'rejected',
+                  reason: controller.text.trim());
+            },
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('تأكيد الرفض'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showDetail(BuildContext context, ExpenseModel expense) {
     final statusColor = _statusColor(expense.status);
     final statusIcon = _statusIcon(expense.status);
@@ -236,8 +327,58 @@ class _AllExpensesTabState extends ConsumerState<AllExpensesTab> {
                       ),
                     ),
                   ],
+                  if (_canReview(expense)) ...[
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _processingExpenseIds.contains(expense.id)
+                                ? null
+                                : () {
+                                    Navigator.pop(ctx);
+                                    _showRejectDialog(expense);
+                                  },
+                            icon: const Icon(Icons.close_rounded, color: AppColors.error),
+                            label: const Text(
+                              'رفض',
+                              style: TextStyle(
+                                color: AppColors.error,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: AppColors.error),
+                              minimumSize: const Size.fromHeight(48),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: _processingExpenseIds.contains(expense.id)
+                                ? null
+                                : () {
+                                    Navigator.pop(ctx);
+                                    _updateExpenseStatus(expense.id, 'approved');
+                                  },
+                            icon: const Icon(Icons.check_rounded),
+                            label: const Text(
+                              'قبول',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.success,
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size.fromHeight(48),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   Row(
                     children: [
                       Expanded(
@@ -372,7 +513,7 @@ class _AllExpensesTabState extends ConsumerState<AllExpensesTab> {
       // Summary stats
       final total = expenses.fold<double>(0, (s, e) => s + e.amount);
       final approved = expenses.where((e) => e.status == 'approved').length;
-      final pending = expenses.where((e) => e.status == 'pending').length;
+      final pending = expenses.where((e) => e.status == 'pending' || e.status == 'escalated').length;
       final rejected = expenses.where((e) => e.status == 'rejected').length;
 
       pdf.addPage(
@@ -539,11 +680,17 @@ class _AllExpensesTabState extends ConsumerState<AllExpensesTab> {
                 data: (expenses) {
                   final filtered = _selectedFilter == 'All'
                       ? expenses
-                      : expenses
-                          .where((e) =>
-                              e.status.toLowerCase() ==
-                              _selectedFilter.toLowerCase())
-                          .toList();
+                      : _selectedFilter == 'Pending'
+                          ? expenses
+                              .where((e) =>
+                                  e.status.toLowerCase() == 'pending' ||
+                                  e.status.toLowerCase() == 'escalated')
+                              .toList()
+                          : expenses
+                              .where((e) =>
+                                  e.status.toLowerCase() ==
+                                  _selectedFilter.toLowerCase())
+                              .toList();
                   return _isExporting
                       ? SizedBox(
                           width: 24,
@@ -628,11 +775,17 @@ class _AllExpensesTabState extends ConsumerState<AllExpensesTab> {
             data: (expenses) {
               final filtered = _selectedFilter == 'All'
                   ? expenses
-                  : expenses
-                      .where((e) =>
-                          e.status.toLowerCase() ==
-                          _selectedFilter.toLowerCase())
-                      .toList();
+                  : _selectedFilter == 'Pending'
+                      ? expenses
+                          .where((e) =>
+                              e.status.toLowerCase() == 'pending' ||
+                              e.status.toLowerCase() == 'escalated')
+                          .toList()
+                      : expenses
+                          .where((e) =>
+                              e.status.toLowerCase() ==
+                              _selectedFilter.toLowerCase())
+                          .toList();
 
               if (filtered.isEmpty) {
                 return Center(
@@ -699,7 +852,12 @@ class _AllExpensesTabState extends ConsumerState<AllExpensesTab> {
                   ),
 
                   Expanded(
-                    child: ListView.separated(
+                    child: RefreshIndicator(
+                      onRefresh: () async {
+                        final brandId = ref.read(selectedBrandIdProvider);
+                        ref.invalidate(allExpensesProvider(brandId));
+                      },
+                      child: ListView.separated(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                       itemCount: filtered.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 8),
@@ -817,6 +975,59 @@ class _AllExpensesTabState extends ConsumerState<AllExpensesTab> {
                                     ),
                                   ],
                                 ),
+                                if (_canReview(expense)) ...[
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      OutlinedButton.icon(
+                                        onPressed: _processingExpenseIds.contains(expense.id)
+                                            ? null
+                                            : () => _showRejectDialog(expense),
+                                        icon: const Icon(Icons.close_rounded, size: 16, color: AppColors.error),
+                                        label: const Text(
+                                          'رفض',
+                                          style: TextStyle(
+                                            color: AppColors.error,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        style: OutlinedButton.styleFrom(
+                                          side: const BorderSide(color: AppColors.error),
+                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                          minimumSize: const Size(0, 36),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      FilledButton.icon(
+                                        onPressed: _processingExpenseIds.contains(expense.id)
+                                            ? null
+                                            : () => _updateExpenseStatus(expense.id, 'approved'),
+                                        icon: _processingExpenseIds.contains(expense.id)
+                                            ? const SizedBox(
+                                                width: 14,
+                                                height: 14,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  color: Colors.white,
+                                                ),
+                                              )
+                                            : const Icon(Icons.check_rounded, size: 16),
+                                        label: const Text(
+                                          'قبول',
+                                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                        ),
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: AppColors.success,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                          minimumSize: const Size(0, 36),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -824,6 +1035,7 @@ class _AllExpensesTabState extends ConsumerState<AllExpensesTab> {
                       },
                     ),
                   ),
+                ),
                 ],
               );
             },

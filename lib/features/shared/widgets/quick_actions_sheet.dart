@@ -7,18 +7,24 @@ import '../../../core/widgets/glass_card.dart';
 import 'schedule_appointment_sheet.dart';
 import 'visit_type_sheet.dart';
 
-void showQuickActionsSheet(BuildContext context, WidgetRef ref) {
+void showQuickActionsSheet(BuildContext context, WidgetRef ref, {bool isGm = false}) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => _QuickActionsSheet(providerRef: ref),
+    builder: (_) => _QuickActionsSheet(providerRef: ref, isGm: isGm, parentContext: context),
   );
 }
 
 class _QuickActionsSheet extends StatelessWidget {
   final WidgetRef providerRef;
-  const _QuickActionsSheet({required this.providerRef});
+  final bool isGm;
+  final BuildContext parentContext;
+  const _QuickActionsSheet({
+    required this.providerRef,
+    this.isGm = false,
+    required this.parentContext,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -57,18 +63,20 @@ class _QuickActionsSheet extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
               children: [
-                _ActionTile(
-                  icon: Icons.add_location_alt_rounded,
-                  iconBg: AppColors.primary.withValues(alpha: 0.12),
-                  iconColor: AppColors.primary,
-                  title: AppStrings.startNewVisit,
-                  subtitle: AppStrings.pharmacyCenterOrDoctor,
-                  onTap: () {
-                    Navigator.pop(context);
-                    showVisitTypeSheet(context);
-                  },
-                ),
-                const SizedBox(height: 8),
+                if (!isGm) ...[
+                  _ActionTile(
+                    icon: Icons.add_location_alt_rounded,
+                    iconBg: AppColors.primary.withValues(alpha: 0.12),
+                    iconColor: AppColors.primary,
+                    title: AppStrings.startNewVisit,
+                    subtitle: AppStrings.pharmacyCenterOrDoctor,
+                    onTap: () {
+                      Navigator.pop(context);
+                      showVisitTypeSheet(context);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 _ActionTile(
                   icon: Icons.event_rounded,
                   iconBg: AppColors.secondary.withValues(alpha: 0.12),
@@ -80,19 +88,20 @@ class _QuickActionsSheet extends StatelessWidget {
                     showScheduleAppointmentSheet(context, providerRef);
                   },
                 ),
-
-                const SizedBox(height: 8),
-                _ActionTile(
-                  icon: Icons.assignment_rounded,
-                  iconBg: AppColors.info.withValues(alpha: 0.12),
-                  iconColor: AppColors.info,
-                  title: AppStrings.submitGeneralReport,
-                  subtitle: AppStrings.syncFieldNotesAnd,
-                  onTap: () {
-                    Navigator.pop(context);
-                    context.push('/rep/submit-report');
-                  },
-                ),
+                if (!isGm) ...[
+                  const SizedBox(height: 8),
+                  _ActionTile(
+                    icon: Icons.assignment_rounded,
+                    iconBg: AppColors.info.withValues(alpha: 0.12),
+                    iconColor: AppColors.info,
+                    title: AppStrings.submitGeneralReport,
+                    subtitle: AppStrings.syncFieldNotesAnd,
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/rep/submit-report');
+                    },
+                  ),
+                ],
                 const SizedBox(height: 8),
                 _ActionTile(
                   icon: Icons.person_add_rounded,
@@ -101,9 +110,24 @@ class _QuickActionsSheet extends StatelessWidget {
                   title: 'Add Client',
                   subtitle: 'Doctor, Pharmacy, or Institution',
                   onTap: () {
-                    _showAddClientSheet(context);
+                    Navigator.pop(context);
+                    _showAddClientSheet(parentContext);
                   },
                 ),
+                if (isGm) ...[
+                  const SizedBox(height: 8),
+                  _ActionTile(
+                    icon: Icons.people_rounded,
+                    iconBg: AppColors.tertiary.withValues(alpha: 0.12),
+                    iconColor: AppColors.tertiary,
+                    title: 'Directory & Clients',
+                    subtitle: 'Doctor, Pharmacy, or Institution list',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/clients');
+                    },
+                  ),
+                ],
               ],
             ),
           ),
@@ -129,9 +153,6 @@ class _QuickActionsSheet extends StatelessWidget {
   }
 
   void _showAddClientSheet(BuildContext context) {
-    final router = GoRouter.of(context);
-    final nav = Navigator.of(context);
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -182,8 +203,7 @@ class _QuickActionsSheet extends StatelessWidget {
                 trailing: Icon(Icons.chevron_right_rounded, color: AppColors.onSurfaceVariant),
                 onTap: () {
                   Navigator.pop(ctx);
-                  nav.pop();
-                  router.push('/clients/new?type=doctor');
+                  context.push('/clients/new?type=doctor');
                 },
               ),
               const SizedBox(height: 8),
@@ -198,8 +218,7 @@ class _QuickActionsSheet extends StatelessWidget {
                 trailing: Icon(Icons.chevron_right_rounded, color: AppColors.onSurfaceVariant),
                 onTap: () {
                   Navigator.pop(ctx);
-                  nav.pop();
-                  router.push('/clients/new?type=pharmacy');
+                  context.push('/clients/new?type=pharmacy');
                 },
               ),
               const SizedBox(height: 8),
@@ -214,8 +233,7 @@ class _QuickActionsSheet extends StatelessWidget {
                 trailing: Icon(Icons.chevron_right_rounded, color: AppColors.onSurfaceVariant),
                 onTap: () {
                   Navigator.pop(ctx);
-                  nav.pop();
-                  router.push('/clients/new?type=institution');
+                  context.push('/clients/new?type=institution');
                 },
               ),
             ],

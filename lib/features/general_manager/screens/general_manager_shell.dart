@@ -37,19 +37,20 @@ class _GeneralManagerShellState extends ConsumerState<GeneralManagerShell>
   late AnimationController _fabController;
   late Animation<double> _fabScale;
 
-  List<Widget> get _tabs => [
-    GmDashboardTab(),
-    CoverageMapTab(),
-    GeneralManagerAnalyticsTab(),
-    TeamDirectoryTab(),
-    AppointmentsTab(),
-    AllExpensesTab(),
-    GeneralManagerLogsTab(),
-  ];
+  late final List<Widget> _tabs;
 
   @override
   void initState() {
     super.initState();
+    _tabs = const [
+      GmDashboardTab(),
+      CoverageMapTab(isEmbedded: true),
+      GeneralManagerAnalyticsTab(),
+      TeamDirectoryTab(),
+      AppointmentsTab(),
+      AllExpensesTab(),
+      GeneralManagerLogsTab(),
+    ];
     _navSlideController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -221,26 +222,9 @@ class _GeneralManagerShellState extends ConsumerState<GeneralManagerShell>
           const SizedBox(width: 8),
         ],
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
-        transitionBuilder: (child, animation) {
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.03),
-                end: Offset.zero,
-              ).animate(
-                CurvedAnimation(parent: animation, curve: Curves.easeOut),
-              ),
-              child: child,
-            ),
-          );
-        },
-        child: KeyedSubtree(
-          key: ValueKey(_currentIndex),
-          child: _tabs[_currentIndex],
-        ),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _tabs,
       ),
       bottomNavigationBar: SlideTransition(
         position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
@@ -279,7 +263,7 @@ class _GeneralManagerShellState extends ConsumerState<GeneralManagerShell>
                 color: Colors.transparent,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(100),
-                  onTap: () => showQuickActionsSheet(context, ref),
+                  onTap: () => showQuickActionsSheet(context, ref, isGm: true),
                   child: Center(
                     child: Icon(
                       Icons.add_rounded,

@@ -69,8 +69,13 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(50),
               child: p['profile_image_url'] != null
-                  ? Image.network(p['profile_image_url'], fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => _initials(p['full_name'] ?? 'U'))
+                  ? Image.network(
+                      p['profile_image_url'].toString().startsWith('http') 
+                          ? p['profile_image_url'] 
+                          : '${ApiService.instance.dio.options.baseUrl}${p['profile_image_url']}', 
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => _initials(p['full_name'] ?? 'U')
+                    )
                   : _initials(p['full_name'] ?? 'U'),
             ),
           ),

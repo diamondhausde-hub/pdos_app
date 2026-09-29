@@ -317,14 +317,14 @@ class _GeneralManagerAnalyticsTabState
                             sections: [
                               PieChartSectionData(
                                 color: AppColors.overseerColor,
-                                value: analytics.targetCompletionPercent,
+                                value: analytics.targetCompletionPercent.clamp(0.0, double.infinity),
                                 title: '',
                                 radius: 8,
                               ),
                               PieChartSectionData(
                                 color: AppColors.surfaceContainerLow,
-                                value: 100 -
-                                    analytics.targetCompletionPercent,
+                                value: (100 -
+                                    analytics.targetCompletionPercent).clamp(0.0, 100.0),
                                 title: '',
                                 radius: 8,
                               ),

@@ -8,18 +8,110 @@ import '../../../core/widgets/glass_card.dart';
 import '../../../core/providers/data_providers.dart';
 import '../../../core/models/task_model.dart';
 
-class TaskCardWidget extends ConsumerWidget {
+class _AnimatedStatusIcon extends StatefulWidget {
+  final IconData icon;
+  final Color color;
+  final bool isPulsing;
+  final bool isSpinning;
+
+  const _AnimatedStatusIcon({
+    required this.icon,
+    required this.color,
+    this.isPulsing = false,
+    this.isSpinning = false,
+  });
+
+  @override
+  State<_AnimatedStatusIcon> createState() => _AnimatedStatusIconState();
+}
+
+class _AnimatedStatusIconState extends State<_AnimatedStatusIcon>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..repeat(reverse: widget.isPulsing);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.isPulsing) {
+      return FadeTransition(
+        opacity: Tween<double>(begin: 0.4, end: 1.0).animate(_controller),
+        child: Icon(widget.icon, size: 12, color: widget.color),
+      );
+    } else if (widget.isSpinning) {
+      return RotationTransition(
+        turns: Tween(begin: 0.0, end: 1.0).animate(_controller),
+        child: Icon(widget.icon, size: 12, color: widget.color),
+      );
+    }
+    return Icon(widget.icon, size: 12, color: widget.color);
+  }
+}
+
+class TaskCardWidget extends ConsumerStatefulWidget {
   final SupervisorTask task;
   final VoidCallback onTap;
 
-  const TaskCardWidget({
-    super.key,
-    required this.task,
-    required this.onTap,
-  });
+  const TaskCardWidget({super.key, required this.task, required this.onTap});
+
+  @override
+  ConsumerState<TaskCardWidget> createState() => _TaskCardWidgetState();
+}
+
+class _TaskCardWidgetState extends ConsumerState<TaskCardWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.03).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    if (widget.task.status == 'pending' || widget.task.status == 'new') {
+      _pulseController.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant TaskCardWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if ((widget.task.status == 'pending' || widget.task.status == 'new') &&
+        !(oldWidget.task.status == 'pending' || oldWidget.task.status == 'new')) {
+      _pulseController.repeat(reverse: true);
+    } else if (widget.task.status != 'pending' && widget.task.status != 'new') {
+      _pulseController.stop();
+      _pulseController.value = 0.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
 
   Color _getPriorityColor() {
-    switch (task.priority) {
+    switch (widget.task.priority) {
       case 'عاجل':
       case 'high':
       case 'urgent':
@@ -33,9 +125,9 @@ class TaskCardWidget extends ConsumerWidget {
   }
 
   Color _getBrandColor() {
-    if (task.brandColor != null && task.brandColor!.isNotEmpty) {
+    if (widget.task.brandColor != null && widget.task.brandColor!.isNotEmpty) {
       try {
-        final hex = task.brandColor!.replaceAll('#', '');
+        final hex = widget.task.brandColor!.replaceAll('#', '');
         return Color(int.parse('FF$hex', radix: 16));
       } catch (e) {
         return AppColors.primary;
@@ -44,192 +136,314 @@ class TaskCardWidget extends ConsumerWidget {
     return AppColors.primary;
   }
 
-  Widget _buildStartButton(BuildContext context, WidgetRef ref, SupervisorTask task) {
-    bool canStart = true;
-    String btnText = 'ابدأ المهمة';
-    if (task.scheduledDatetime != null) {
-      final now = DateTime.now();
-      if (now.isBefore(task.scheduledDatetime!)) {
-        canStart = false;
-        final diff = task.scheduledDatetime!.difference(now);
-        if (diff.inHours > 0) {
-          btnText = 'بعد ${diff.inHours} ساعة';
-        } else if (diff.inMinutes > 0) {
-          btnText = 'بعد ${diff.inMinutes} دقيقة';
-        } else {
-          btnText = 'الآن';
-          canStart = true;
-        }
-      }
+  Widget _buildStatusBadge() {
+    Color color;
+    IconData icon;
+    String label;
+    bool isPulsing = false;
+    bool isSpinning = false;
+
+    switch (widget.task.status) {
+      case 'pending':
+        color = Colors.grey;
+        icon = Icons.hourglass_empty;
+        label = 'بانتظار القبول';
+        break;
+      case 'accepted_scheduled':
+        color = Colors.blue;
+        icon = Icons.schedule;
+        label = 'مجدولة';
+        break;
+      case 'upcoming':
+        color = Colors.amber;
+        icon = Icons.alarm;
+        label = 'قريبة';
+        isPulsing = true;
+        break;
+      case 'in_progress':
+        color = Colors.green;
+        icon = Icons.sync;
+        label = 'قيد التنفيذ';
+        isSpinning = true;
+        break;
+      case 'completed':
+        color = Colors.grey.shade400;
+        icon = Icons.check_circle;
+        label = 'مكتملة';
+        break;
+      case 'overdue':
+        color = Colors.red;
+        icon = Icons.warning;
+        label = 'متأخرة';
+        break;
+      case 'abandoned':
+        color = Colors.deepOrange;
+        icon = Icons.directions_run;
+        label = 'متروكة';
+        break;
+      case 'rejected':
+        color = Colors.redAccent;
+        icon = Icons.cancel;
+        label = 'مرفوضة';
+        break;
+      default:
+        color = Colors.grey;
+        icon = Icons.info;
+        label = widget.task.status;
     }
 
-    return ElevatedButton(
-      onPressed: canStart ? () => handleStartTask(context, ref, task) : null,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: canStart ? AppColors.success : Colors.grey,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-        minimumSize: const Size(0, 32),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
-      child: Text(btnText),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _AnimatedStatusIcon(
+            icon: icon,
+            color: color,
+            isPulsing: isPulsing,
+            isSpinning: isSpinning,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: AppTextStyles.labelSm.copyWith(color: color, fontSize: 9, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
     );
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isOverdue = task.dueDate != null && task.dueDate!.isBefore(DateTime.now()) && task.status != 'done' && task.status != 'completed';
-    final isToday = task.dueDate != null &&
-        task.dueDate!.year == DateTime.now().year &&
-        task.dueDate!.month == DateTime.now().month &&
-        task.dueDate!.day == DateTime.now().day;
+  Widget build(BuildContext context) {
+    final isOverdue =
+        widget.task.dueDate != null &&
+        widget.task.dueDate!.isBefore(DateTime.now()) &&
+        widget.task.status != 'done' &&
+        widget.task.status != 'completed';
+        
+    final brandColor = _getBrandColor();
+    final priorityColor = _getPriorityColor();
 
-    return GlassCard(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: EdgeInsets.zero,
-      onTap: onTap,
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              width: 4,
-              color: _getBrandColor(),
+    Widget cardContent = GlassCard(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      onTap: widget.onTap,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Left Side (Leading in RTL) - Icon
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: brandColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
             ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.task_alt, size: 16, color: AppColors.primary),
-                            const SizedBox(width: 4),
-                            Text(task.taskTypeLabel, style: AppTextStyles.labelMd.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold)),
-                          ],
+            child: Icon(
+              Icons.assignment_outlined,
+              color: brandColor,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Middle Column - Details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  (widget.task.targetName != null && widget.task.targetName!.isNotEmpty) 
+                      ? widget.task.targetName! 
+                      : widget.task.taskTypeLabel,
+                  style: AppTextStyles.headlineSm.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 14,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: brandColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
                         ),
-                        if (task.priority != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: _getPriorityColor().withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              task.priorityLabel,
-                              style: AppTextStyles.labelSm.copyWith(color: _getPriorityColor(), fontWeight: FontWeight.bold),
+                        child: Text(
+                          widget.task.taskTypeLabel,
+                          style: AppTextStyles.labelSm.copyWith(
+                            color: brandColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (widget.task.dueDate != null || widget.task.scheduledDatetime != null) ...[
+                        Icon(
+                          Icons.calendar_today,
+                          size: 12,
+                          color: isOverdue ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          DateFormat('yyyy-MM-dd').format((widget.task.scheduledDatetime ?? widget.task.dueDate)!),
+                          style: AppTextStyles.labelSm.copyWith(
+                            color: isOverdue ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
+                      if (widget.task.priority != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: priorityColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            widget.task.priorityLabel,
+                            style: AppTextStyles.labelSm.copyWith(
+                              color: priorityColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
+                        ),
                       ],
-                    ),
-                    const SizedBox(height: 8),
-                    if (task.targetName != null)
-                      Text(task.targetName!, style: AppTextStyles.headlineSm.copyWith(fontWeight: FontWeight.bold)),
-                    if (task.supervisorName != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
-                        child: Text('المشرف: ${task.supervisorName}', style: AppTextStyles.bodySm.copyWith(color: AppColors.onSurfaceVariant)),
-                      ),
-                    if (task.notes != null && task.notes!.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
-                        child: Text('ملاحظة: ${task.notes}', style: AppTextStyles.bodySm.copyWith(color: AppColors.onSurfaceVariant), maxLines: 2, overflow: TextOverflow.ellipsis),
-                      ),
-                    const SizedBox(height: 12),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: AlignmentDirectional.centerStart,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          if (task.dueDate != null)
-                            Row(
-                              children: [
-                                Icon(Icons.calendar_today, size: 14, color: isOverdue ? AppColors.error : (isToday ? AppColors.success : AppColors.onSurfaceVariant)),
-                                const SizedBox(width: 4),
-                                Text(
-                                  DateFormat('yyyy-MM-dd').format(task.dueDate!),
-                                  style: AppTextStyles.labelSm.copyWith(color: isOverdue ? AppColors.error : (isToday ? AppColors.success : AppColors.onSurfaceVariant)),
-                                ),
-                              ],
-                            )
-                          else
-                            const SizedBox(),
-
-                          const SizedBox(width: 12),
-
-                          if (task.status == 'pending')
-                            Row(
-                              children: [
-                                ElevatedButton(
-                                  onPressed: () => TaskAcceptDialog.showTaskAcceptDialog(context, ref, task),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.success,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                                    minimumSize: const Size(0, 32),
-                                  ),
-                                  child: const Text('قبول'),
-                                ),
-                                const SizedBox(width: 8),
-                                ElevatedButton(
-                                  onPressed: () => TaskRejectDialog.showTaskRejectDialog(context, ref, task),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.error,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                                    minimumSize: const Size(0, 32),
-                                  ),
-                                  child: const Text('رفض'),
-                                ),
-                              ],
-                            )
-                          else if (task.status == 'scheduled' || task.status == 'accepted')
-                            _buildStartButton(context, ref, task)
-                          else if (task.status == 'in_progress')
-                            ElevatedButton(
-                              onPressed: () async {
-                                try {
-                                  await ref.read(taskRepositoryProvider).updateTaskStatus(task.id, 'done');
-                                  ref.invalidate(repTasksProvider);
-                                  ref.invalidate(tasksProvider);
-                                } catch (e) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ: $e')));
-                                  }
-                                }
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.success,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                                minimumSize: const Size(0, 32),
-                              ),
-                              child: const Text('إنهاء المهمة'),
+                      if (getTaskRemainingTimeText(widget.task) != null &&
+                          widget.task.status != 'completed' &&
+                          widget.task.status != 'done' &&
+                          widget.task.status != 'rejected') ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isOverdue
+                                ? Theme.of(context).colorScheme.error.withValues(alpha: 0.1)
+                                : AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: isOverdue
+                                  ? Theme.of(context).colorScheme.error.withValues(alpha: 0.3)
+                                  : AppColors.primary.withValues(alpha: 0.2),
+                              width: 0.8,
                             ),
-                        ],
-                      ),
-                    ),
-                  ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.timer_outlined,
+                                size: 10,
+                                color: isOverdue ? Theme.of(context).colorScheme.error : AppColors.primary,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                getTaskRemainingTimeText(widget.task)!,
+                                style: AppTextStyles.labelSm.copyWith(
+                                  color: isOverdue ? Theme.of(context).colorScheme.error : AppColors.primary,
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+          // Right Side (Trailing in RTL) - Status & Chevron
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _buildStatusBadge(),
+              const SizedBox(height: 8),
+              Icon(
+                Icons.chevron_left, // Points forward in RTL
+                color: Theme.of(context).colorScheme.outlineVariant,
+                size: 20,
+              ),
+            ],
+          ),
+        ],
       ),
+    );
+
+    // Add pulse animation
+    Widget animatedCard = AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _pulseAnimation.value,
+          child: child,
+        );
+      },
+      child: cardContent,
+    );
+
+    // Add entrance animation (slide up + fade in)
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Transform.translate(
+          offset: Offset(0, 20 * (1 - value)),
+          child: Opacity(
+            opacity: value,
+            child: child,
+          ),
+        );
+      },
+      child: animatedCard,
     );
   }
 }
 
-class TaskAcceptDialog {
-  static Future<void> showTaskAcceptDialog(BuildContext context, WidgetRef ref, SupervisorTask task) async {
-    try {
-      await ref.read(taskRepositoryProvider).updateTaskStatus(task.id, 'accepted');
-      if (!context.mounted) return;
+String? getTaskRemainingTimeText(SupervisorTask task) {
+  final targetTime = task.scheduledDatetime ?? task.dueDate;
+  if (targetTime == null) return null;
+  final now = DateTime.now();
+  final diff = targetTime.difference(now);
 
+  if (diff.isNegative) {
+    final passed = now.difference(targetTime);
+    if (passed.inDays > 0) return 'متأخرة بـ ${passed.inDays} يوم';
+    if (passed.inHours > 0) return 'متأخرة بـ ${passed.inHours} س';
+    return 'متأخرة بـ ${passed.inMinutes} د';
+  } else {
+    if (diff.inDays > 0) return 'متبقي ${diff.inDays} يوم';
+    if (diff.inHours > 0) return 'متبقي ${diff.inHours} س و ${diff.inMinutes % 60} د';
+    if (diff.inMinutes > 0) return 'متبقي ${diff.inMinutes} د';
+    return 'حان الموعد الآن!';
+  }
+}
+
+class TaskAcceptDialog {
+  static Future<bool> showTaskAcceptDialog(
+    BuildContext context,
+    WidgetRef ref,
+    SupervisorTask task,
+  ) async {
+    try {
       final String? reminder = await showDialog<String>(
         context: context,
         builder: (ctx) => Directionality(
@@ -239,29 +453,63 @@ class TaskAcceptDialog {
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                ListTile(title: const Text('بدون تذكير'), onTap: () => Navigator.pop(ctx, null)),
-                ListTile(title: const Text('قبل ساعة'), onTap: () => Navigator.pop(ctx, '1h')),
-                ListTile(title: const Text('قبل 5 ساعات'), onTap: () => Navigator.pop(ctx, '5h')),
-                ListTile(title: const Text('قبل يوم'), onTap: () => Navigator.pop(ctx, '1d')),
-                ListTile(title: const Text('قبل يومين'), onTap: () => Navigator.pop(ctx, '2d')),
+                ListTile(
+                  title: const Text('بدون تذكير'),
+                  onTap: () => Navigator.pop(ctx, 'no_reminder'),
+                ),
+                ListTile(
+                  title: const Text('قبل ساعة'),
+                  onTap: () => Navigator.pop(ctx, '1h'),
+                ),
+                ListTile(
+                  title: const Text('قبل 5 ساعات'),
+                  onTap: () => Navigator.pop(ctx, '5h'),
+                ),
+                ListTile(
+                  title: const Text('قبل يوم'),
+                  onTap: () => Navigator.pop(ctx, '1d'),
+                ),
+                ListTile(
+                  title: const Text('قبل يومين'),
+                  onTap: () => Navigator.pop(ctx, '2d'),
+                ),
               ],
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, null),
+                child: const Text('إلغاء'),
+              ),
+            ],
           ),
         ),
       );
 
-      if (!context.mounted) return;
-      await ref.read(taskRepositoryProvider).updateTaskStatus(task.id, 'scheduled', reminderOffset: reminder);
+      if (reminder == null) return false;
+      final actualReminder = reminder == 'no_reminder' ? null : reminder;
+
+      if (!context.mounted) return false;
+      await ref
+          .read(taskRepositoryProvider)
+          .updateTaskStatus(task.id, 'accepted_scheduled', reminderOffset: actualReminder);
       ref.invalidate(repTasksProvider);
       ref.invalidate(tasksProvider);
+      return true;
     } catch (e) {
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ: $e')));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ: $e')));
+      }
+      return false;
     }
   }
 }
 
 class TaskRejectDialog {
-  static Future<void> showTaskRejectDialog(BuildContext context, WidgetRef ref, SupervisorTask task) async {
+  static Future<bool> showTaskRejectDialog(
+    BuildContext context,
+    WidgetRef ref,
+    SupervisorTask task,
+  ) async {
     final reportController = TextEditingController();
     bool isSubmitEnabled = false;
 
@@ -274,15 +522,27 @@ class TaskRejectDialog {
             title: const Text('رفض المهمة'),
             content: TextField(
               controller: reportController,
-              decoration: const InputDecoration(labelText: 'سبب الرفض (إجباري)', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: 'سبب الرفض (إجباري)',
+                border: OutlineInputBorder(),
+              ),
               maxLines: 3,
-              onChanged: (v) => setState(() => isSubmitEnabled = v.trim().isNotEmpty),
+              onChanged: (v) =>
+                  setState(() => isSubmitEnabled = v.trim().isNotEmpty),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('إلغاء'),
+              ),
               ElevatedButton(
-                onPressed: isSubmitEnabled ? () => Navigator.pop(ctx, reportController.text.trim()) : null,
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+                onPressed: isSubmitEnabled
+                    ? () => Navigator.pop(ctx, reportController.text.trim())
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                  foregroundColor: Colors.white,
+                ),
                 child: const Text('تأكيد الرفض'),
               ),
             ],
@@ -293,13 +553,20 @@ class TaskRejectDialog {
 
     if (report != null && report.isNotEmpty && context.mounted) {
       try {
-        await ref.read(taskRepositoryProvider).updateTaskStatus(task.id, 'rejected', rejectionReport: report);
+        await ref
+            .read(taskRepositoryProvider)
+            .updateTaskStatus(task.id, 'rejected', rejectionReport: report);
         ref.invalidate(repTasksProvider);
         ref.invalidate(tasksProvider);
+        return true;
       } catch (e) {
-        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ: $e')));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ: $e')));
+        }
+        return false;
       }
     }
+    return false;
   }
 }
 
@@ -321,7 +588,10 @@ class TaskStatusBadge extends ConsumerWidget {
           ),
           child: Text(
             '$newCount',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         );
       },
@@ -330,22 +600,37 @@ class TaskStatusBadge extends ConsumerWidget {
   }
 }
 
-Future<void> handleStartTask(BuildContext context, WidgetRef ref, SupervisorTask task) async {
+Future<void> handleStartTask(
+  BuildContext context,
+  WidgetRef ref,
+  SupervisorTask task,
+) async {
   try {
-    await ref.read(taskRepositoryProvider).updateTaskStatus(task.id, 'in_progress');
+    await ref
+        .read(taskRepositoryProvider)
+        .updateTaskStatus(task.id, 'in_progress');
     ref.invalidate(repTasksProvider);
     ref.invalidate(tasksProvider);
 
     if (!context.mounted) return;
+    Navigator.pop(context);
 
     if (task.visitSubtype == 'doctor') {
-      context.push('/rep/doctor-visit?taskId=${task.id}${task.targetId != null ? '&clientId=${task.targetId}' : ''}');
+      context.push(
+        '/rep/doctor-visit?taskId=${task.id}${task.targetId != null ? '&clientId=${task.targetId}' : ''}',
+      );
     } else if (task.visitSubtype == 'pharmacy' && task.targetId != null) {
-      context.push('/rep/active_visit/unscheduled?clientId=${task.targetId}&taskId=${task.id}');
+      context.push(
+        '/rep/active_visit/unscheduled?clientId=${task.targetId}&taskId=${task.id}',
+      );
     } else {
-      context.push('/rep/visit/new?taskId=${task.id}${task.targetId != null ? '&clientId=${task.targetId}' : ''}');
+      context.push(
+        '/rep/visit/new?taskId=${task.id}${task.targetId != null ? '&clientId=${task.targetId}' : ''}',
+      );
     }
   } catch (e) {
-    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ: $e')));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ: $e')));
+    }
   }
 }

@@ -9,6 +9,7 @@ import 'data_providers.dart';
 import 'package:app_links/app_links.dart';
 import '../services/live_tracking_service.dart';
 import '../services/firebase_service.dart';
+import 'brand_provider.dart';
 
 enum AuthStateStatus { initial, unauthenticated, authenticated }
 
@@ -164,6 +165,8 @@ class AuthNotifier extends Notifier<AuthState> {
     } catch (_) {}
     await _clearCachedUser();
     await _apiService.logout();
+
+    ref.read(selectedBrandIdProvider.notifier).state = null;
 
     state = const AuthState(status: AuthStateStatus.unauthenticated);
 

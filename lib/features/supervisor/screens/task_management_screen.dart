@@ -115,13 +115,13 @@ class _TaskManagementScreenState extends ConsumerState<TaskManagementScreen> wit
               itemBuilder: (context, index) {
                 final task = filtered[index];
                 return _TaskCard(task: task, onStatusChanged: (status) {
-                if (status == 'pending') _tabController.animateTo(1);
-                else if (status == 'accepted') _tabController.animateTo(2);
-                else if (status == 'scheduled') _tabController.animateTo(3);
-                else if (status == 'in_progress') _tabController.animateTo(4);
-                else if (status == 'rejected') _tabController.animateTo(5);
-                else if (status == 'completed' || status == 'done') _tabController.animateTo(6);
-              });
+                  if (status == 'pending') { _tabController.animateTo(1); }
+                  else if (status == 'accepted') { _tabController.animateTo(2); }
+                  else if (status == 'scheduled') { _tabController.animateTo(3); }
+                  else if (status == 'in_progress') { _tabController.animateTo(4); }
+                  else if (status == 'rejected') { _tabController.animateTo(5); }
+                  else if (status == 'completed' || status == 'done') { _tabController.animateTo(6); }
+                });
               },
             );
           },
@@ -592,6 +592,7 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
     if (_selectedTarget != null) {
       taskData['target_id'] = _selectedTarget!['id'];
       taskData['target_type'] = _selectedTarget!['type'];
+      taskData['target_name'] = _selectedTarget!['name'];
     }
 
     try {
@@ -619,22 +620,18 @@ class _TaskDetailsSheet extends StatefulWidget {
 
 class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
   late SupervisorTask _currentTask;
-  final _progressNoteController = TextEditingController();
   List<dynamic> _history = [];
   bool _isLoadingHistory = false;
-  bool _isUpdatingStatus = false;
 
   @override
   void initState() {
     super.initState();
     _currentTask = widget.task;
-    _progressNoteController.text = _currentTask.progressNote ?? '';
     _fetchHistory();
   }
 
   @override
   void dispose() {
-    _progressNoteController.dispose();
     super.dispose();
   }
 
@@ -653,33 +650,7 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
     }
   }
 
-    Future<void> _updateStatus(String newStatus) async {
-    if (_isUpdatingStatus) return;
-    setState(() => _isUpdatingStatus = true);
-    try {
-      final updated = await widget.parentRef.read(taskRepositoryProvider).updateTaskStatus(
-        _currentTask.id, 
-        newStatus,
-        progressNote: _progressNoteController.text,
-      );
-      widget.parentRef.invalidate(tasksProvider);
-      if (mounted) {
-        setState(() {
-          _currentTask = updated;
-          _isUpdatingStatus = false;
-        });
-        Navigator.pop(context);
-        if (widget.onStatusChanged != null) {
-          widget.onStatusChanged!(newStatus);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isUpdatingStatus = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('فشل التحديث: $e')));
-      }
-    }
-  }
+
 
   Future<void> _deleteTask() async {
     final confirm = await showDialog<bool>(
@@ -797,31 +768,10 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
                         ),
                       if (_currentTask.status != 'rejected' && _currentTask.notes != null && _currentTask.notes!.isNotEmpty)
                         _buildDetailRow('ملاحظات المشرف', _currentTask.notes!),
-                      const SizedBox(height: 20),
-                      Text('ملاحظات التقدم', style: AppTextStyles.h4),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _progressNoteController,
-                        decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'أضف ملاحظة...'),
-                        maxLines: 2,
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildStatusButton('new', 'جديدة', Colors.blue),
-                          _buildStatusButton('in_progress', 'قيد التنفيذ', Colors.orange),
-                          _buildStatusButton('done', 'مكتملة', Colors.green),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildStatusButton('rejected', 'مرفوضة', Colors.red),
-                          _buildStatusButton('late', 'متأخرة', Colors.deepOrange),
-                        ],
-                      ),
+                      if (_currentTask.progressNote != null && _currentTask.progressNote!.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        _buildDetailRow('ملاحظات التقدم', _currentTask.progressNote!),
+                      ],
                       const Divider(height: 40),
                       Text('سجل المهمة', style: AppTextStyles.h4),
                       const SizedBox(height: 12),
@@ -852,22 +802,6 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildStatusButton(String status, String label, Color color) {
-    final isActive = _currentTask.status == status;
-    return ElevatedButton(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: isActive ? color : Colors.transparent,
-        foregroundColor: isActive ? Colors.white : color,
-        elevation: isActive ? 2 : 0,
-        side: BorderSide(color: color, width: 2),
-      ),
-      onPressed: (_isUpdatingStatus || isActive) ? null : () => _updateStatus(status),
-      child: _isUpdatingStatus && isActive 
-          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-          : Text(label),
     );
   }
 

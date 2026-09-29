@@ -13,6 +13,7 @@ import '../../../core/providers/data_providers.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../../../shared/widgets/shimmer_loading.dart';
 import '../widgets/task_card_widget.dart';
+import 'rep_tasks_tab.dart';
 
 
 final _distance = const Distance();
@@ -864,17 +865,21 @@ class _NewTasksSection extends ConsumerWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              "المهام الجديدة",
-              style: AppTextStyles.headlineSm.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.onSurface,
-              ),
+            Row(
+              children: [
+                Text(
+                  "مهامي الحالية",
+                  style: AppTextStyles.headlineSm.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.onSurface,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const TaskStatusBadge(),
+              ],
             ),
             Row(
               children: [
-                const TaskStatusBadge(),
-                const SizedBox(width: 8),
                 TextButton(
                   onPressed: () => context.push('/rep/tasks'),
                   style: TextButton.styleFrom(
@@ -892,8 +897,17 @@ class _NewTasksSection extends ConsumerWidget {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, s) => Text('خطأ: $e'),
           data: (tasks) {
-            final pendingTasks = tasks.where((t) => t.status == 'pending').toList();
-            if (pendingTasks.isEmpty) {
+            final activeTasks = tasks.where((t) =>
+              t.status == 'pending' ||
+              t.status == 'accepted' ||
+              t.status == 'scheduled' ||
+              t.status == 'accepted_scheduled' ||
+              t.status == 'upcoming' ||
+              t.status == 'in_progress' ||
+              t.status == 'overdue'
+            ).toList();
+
+            if (activeTasks.isEmpty) {
               return Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
@@ -902,17 +916,17 @@ class _NewTasksSection extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: AppColors.softShadow,
                 ),
-                child: const Center(child: Text('لا توجد مهام معلقة حالياً')),
+                child: const Center(child: Text('لا توجد مهام نشطة حالياً')),
               );
             }
             return ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: pendingTasks.length,
+              itemCount: activeTasks.length,
               itemBuilder: (context, index) {
                 return TaskCardWidget(
-                  task: pendingTasks[index],
-                  onTap: () => context.push('/rep/tasks'),
+                  task: activeTasks[index],
+                  onTap: () => showTaskDetailSheet(context, activeTasks[index]),
                 );
               },
             );
